@@ -14,6 +14,10 @@ export class ObjMainRooms {
         }
     }
 
+    public ReinitialMemory() {
+        for (const roomname in this.Rooms) { this.Rooms[roomname].ReinitialMemory(); }
+    }
+
     public RunInStartOfTick() {
         for (const roomname in this.Rooms) { this.Rooms[roomname].RunInStartOfTick(); }
     }
@@ -22,12 +26,8 @@ export class ObjMainRooms {
         for (const roomname in this.Rooms) { this.Rooms[roomname].RunInEndOfTick(); }
     }
 
-    public RunInConstruct() {
-        for (const roomname in this.Rooms) { this.Rooms[roomname].RunInConstruct(); }
-    }
-
     public RunNotEveryTick() {
-        // Доработка запускать по кругу
+        if (Game.time % 10 !== 0) {return; }
         for (const roomname in this.Rooms) { this.Rooms[roomname].RunNotEveryTick(); }
     }
 

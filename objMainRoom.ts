@@ -18,6 +18,7 @@ export class ObjMainRoom {
     public Spawns: StructureSpawn[];
     public Extensions: StructureExtension[];
     public Containers: StructureContainer[];
+    public Links: StructureLink[];
     public LevelOfRoom: number;
     public Tasks: objTasks;
     public isBuildSomething: boolean;
@@ -26,20 +27,23 @@ export class ObjMainRoom {
     public energyCapacityAvailable: number;
 
     private GetLevelOfRoom(): number {
-        let _LevelOfRoom: number = 0;
-        // 1
-        if (this.Controller.level >= 1) {
-            _LevelOfRoom = 1;
+        // 2
+        if (this.Controller.level >= 2) {
+            // 1) енергия = 550
+            // 2) есть контейнеры около источников
+            let isOk: boolean = true;
+            if (this.energyCapacityAvailable < 550 ) {isOk = false; }
+            if (!this.Containers[0]) {isOk = false; }
+            if (this.Sources.length > 1 && !this.Containers[1]) {isOk = false; }
+            if (isOk) {return 2; }
         }
 
-        // 2
-        if (_LevelOfRoom !== 1) { return _LevelOfRoom; }
-        if (this.Controller.level >= 2) {
-            // 1) енергия = 500
-            // 2) есть контейнеры около источников
-            // _LevelOfRoom = 1;
+        // 1
+        if (this.Controller.level >= 1) {
+            return 1;
         }
-        return _LevelOfRoom;
+
+        return 0;
     }
 
     private GetController(): StructureController {
@@ -70,18 +74,31 @@ export class ObjMainRoom {
         return sources;
     }
 
+    private GetContainers(): StructureContainer[] {
+        const containers: StructureContainer[] = new Array<StructureContainer>(5);
+        for (const idContainer of this.Data.idContainers) {
+            if (idContainer !== null) {
+                containers[this.Data.idContainers.indexOf(idContainer)] = (Game.getObjectById(idContainer) as StructureContainer);
+            }
+        }
+        return containers;
+    }
+
     private MemorySetNull() {
         if (this.Data.idController === undefined) {this.Data.idController = ""; }
         if (this.Data.idSources === undefined) {this.Data.idSources = []; }
         if (this.Data.idSpawns === undefined) {this.Data.idSpawns = []; }
         if (this.Data.idExtensions === undefined) {this.Data.idExtensions = []; }
-        if (this.Data.idContainers === undefined) {this.Data.idContainers = new Array<string>(6); }
+        if (this.Data.idContainers === undefined) {this.Data.idContainers = new Array<string>(5); }
+        if (this.Data.idLinks === undefined) {this.Data.idLinks = new Array<string>(6); }
     }
 
     private MemoryCheckObjects() {
         if (!sf.CheckObjectExists(this.Data.idController)) {this.Data.idController = ""; }
         if (!sf.CheckObjectExistsArray(this.Data.idSpawns)) {this.Data.idSpawns = []; }
         if (!sf.CheckObjectExistsArray(this.Data.idExtensions)) {this.Data.idExtensions = []; }
+        if (!sf.CheckObjectExistsArray(this.Data.idContainers)) {this.Data.idContainers = new Array<string>(5); }
+        if (!sf.CheckObjectExistsArray(this.Data.idLinks)) {this.Data.idLinks = new Array<string>(6); }
     }
 
     private MemoryFillAllId() {
@@ -128,6 +145,31 @@ export class ObjMainRoom {
             messenger.log("REFILL", this.Name, `( ${this.Describe} ) idExtensions     : ${this.Data.idExtensions}`, COLOR_YELLOW);
         }
         messenger.log("FILLED", this.Name, `( ${this.Describe} ) idExtensions     : ${this.Data.idExtensions}`, COLOR_WHITE);
+
+        // idContainers
+        let fNeedRecalculateContainer: boolean = false;
+        if ( this.Data.idContainers[0] == null && this.Data.idSources.length >= 1 &&  this.Data.idLinks[0] == null) {fNeedRecalculateContainer = true; }
+        if ( this.Data.idContainers[1] == null && this.Data.idSources.length >= 2 &&  this.Data.idLinks[1] == null) {fNeedRecalculateContainer = true; }
+
+        if (this.isBuildSomething || fNeedRecalculateContainer) {
+            const containers: StructureContainer[] = Game.rooms[this.Name].find(FIND_STRUCTURES, {
+                filter: (structure) => {
+                    return (structure.structureType === STRUCTURE_CONTAINER);
+                }
+            }) as StructureContainer[];
+            // Containers 0,1
+            for (let i: number = 0 ; i < this.Data.idSources.length; i++) {
+                const fSource: Source = (Game.getObjectById(this.Data.idSources[i]) as Source);
+                for (const container of containers) {
+                    if ( container.pos.inRangeTo(fSource.pos, 2)) {
+                        this.Data.idContainers[i]  = container.id;
+                        break;
+                    }
+                }
+            }
+            messenger.log("REFILL", this.Name, `( ${this.Describe} ) idContainers     : ${this.Data.idContainers}`, COLOR_YELLOW);
+        }
+        messenger.log("FILLED", this.Name, `( ${this.Describe} ) idContainers     : ${this.Data.idContainers}`, COLOR_WHITE);
     }
 
     constructor(name: string, describe: string) {
@@ -143,6 +185,7 @@ export class ObjMainRoom {
         if (Memory.MData[this.Name] === undefined) {
             Memory.MData[this.Name] = (new Object() as IntMainRoomMemory);
         }
+        // Memory.MData[this.Name] = (new Object() as IntMainRoomMemory);
         this.Data = (Memory.MData[this.Name] as IntMainRoomMemory);
         this.MemorySetNull();
         this.Tasks          = new objTasks(this.Data);
@@ -152,6 +195,7 @@ export class ObjMainRoom {
         this.Spawns                     = [];
         this.Extensions                 = [];
         this.Containers                 = [];
+        this.Links                      = [];
         this.LevelOfRoom                = 1;
         this.isBuildSomething           = false;
         this.ConstructionSites          =     [];
@@ -159,49 +203,46 @@ export class ObjMainRoom {
         this.energyCapacityAvailable    = 0;
     }
 
+    public ReinitialMemory() {
+        this.Data = (Memory.MData[this.Name] as IntMainRoomMemory);
+        this.Tasks.ReinitialMemory(this.Data);
+    }
+
     public RunInStartOfTick() {
         for (const i of this.Need) { sf.ArrayFillZero(i); }
         sf.ArrayFillZero(this.Have);
         this.Queue = [];
+
         // Building
         this.isBuildSomething   = false;
         const ConstructionSites: ConstructionSite[] = Game.rooms[this.Name].find(FIND_CONSTRUCTION_SITES);
         if (this.ConstructionSites.length !== 0 && ConstructionSites.length < this.ConstructionSites.length) {this.isBuildSomething = true; }
         this.ConstructionSites = ConstructionSites;
         // End building
+
         this.MemoryCheckObjects();
         this.MemoryFillAllId();
         this.Controller                 = this.GetController();
         this.Sources                    = this.GetSources();
         this.Spawns                     = this.GetSpawns();
         this.Extensions                 = this.GetExtensions();
-        this.LevelOfRoom                = this.GetLevelOfRoom();
         this.energyAvailable            = Game.rooms[this.Name].energyAvailable;
         this.energyCapacityAvailable    = Game.rooms[this.Name].energyCapacityAvailable;
+        this.Containers                 = this.GetContainers();
+        this.LevelOfRoom                = this.GetLevelOfRoom();
         this.Tasks.RunInStartOfTick();
+        if (this.LevelOfRoom === 2) {
+            messenger.log("MESSAGE", "", "Level 2 is riched", COLOR_RED);
+        }
     }
 
     public RunInEndOfTick() {
-        // this.Tasks.RunInEndOfTick();
-    }
-
-    public RunInConstruct() {
-        // for (const roomname in this.Rooms) { this.Rooms[roomname].inStartOfTick(); }
+        //
     }
 
     public RunNotEveryTick() {
-        // for (const roomname in this.Rooms) { this.Rooms[roomname].inStartOfTick(); }
-    }
-
-    public testTask() {
-        // const tKey: string = "erty";
-        // if (this.Tasks.TasksMemory[tKey] === undefined) {
-        //     this.Tasks.addTask(tKey, this.Controller.id);
-        // }
-        // this.Tasks.TasksMemory[tKey].idTo = this.Spawns[0].id;
-        // const tLevel = (this.Tasks.TasksHash[tKey].objFrom as StructureController).ticksToDowngrade;
-        // console.log(`Level from task: ${tLevel}`);
-        // console.log(`Level: ${this.Controller.ticksToDowngrade}`);
+        this.BuildCreeps();
+        this.Build();
     }
 
     private BuildQueue() {
@@ -222,8 +263,12 @@ export class ObjMainRoom {
     }
 
     private NeedCorrection() {
-        if (this.LevelOfRoom === 1) {
-            if (this.energyCapacityAvailable >= 400) { this.Need[0][0] = 8; } else {this.Need[0][0] = 10; }
+        if (this.LevelOfRoom >= 1) {
+            if (this.Data.idSources.length > 1) {
+                if (this.energyCapacityAvailable >= 400) { this.Need[0][0] = 8; } else {this.Need[0][0] = 10; }
+            } else {
+                if (this.energyCapacityAvailable >= 400) { this.Need[0][0] = 4; } else {this.Need[0][0] = 5; }
+            }
         }
     }
 
@@ -293,6 +338,50 @@ export class ObjMainRoom {
           }
         }
         return tObject;
+    }
+
+    private BuildStructure(fPrimeColor: ColorConstant , fSecondaryColor: ColorConstant , fWhatBuild: StructureConstant, fCount: number): boolean {
+        let fBuild = false;
+        const flags: Flag[] = Game.rooms[this.Name].find(FIND_FLAGS, {
+            filter: (structure) => {
+                return ((structure.color === fPrimeColor) && (structure.secondaryColor === fSecondaryColor));
+            }
+        });
+        if (flags.length < fCount) {fCount = flags.length; }
+        for (let i = 0; i < fCount; i++) {
+            if (Game.rooms[this.Name].createConstructionSite(flags[i].pos, fWhatBuild) === OK) {
+                flags[i].remove();
+                fBuild = true;
+            }
+        }
+        return fBuild;
+    }
+
+    private Build() {
+        // primaryColor
+        // 10 color COLOR_WHITE
+        // secondaryColor
+        // 1 COLOR_RED       STRUCTURE_EXTENSION
+        // 2 COLOR_PURPLE    STRUCTURE_CONTAINER near controller
+        // 3 COLOR_BLUE      STRUCTURE_TOWER
+        // 4 COLOR_CYAN      STRUCTURE_ROAD after tower
+        // 5 COLOR_GREEN     STRUCTURE_STORAGE
+        // 6 COLOR_YELLOW    STRUCTURE_CONTAINER near source
+        // 7 COLOR_ORANGE    STRUCTURE_ROAD before storage
+        // 8 COLOR_BROWN     STRUCTURE_SPAWN
+        if (this.ConstructionSites.length !== 0 ) {return; }
+
+        if (this.Controller.level === 2) {
+            if (this.energyCapacityAvailable < 400) {
+                if (this.BuildStructure(COLOR_WHITE, COLOR_RED , STRUCTURE_EXTENSION, 2)) {return; }
+            }
+
+            if (this.BuildStructure(COLOR_WHITE, COLOR_PURPLE , STRUCTURE_CONTAINER, 2)) {return; }
+
+            if (this.energyCapacityAvailable < 550) {
+                if (this.BuildStructure(COLOR_WHITE, COLOR_RED , STRUCTURE_EXTENSION, 3)) {return; }
+            }
+        }
     }
 }
 

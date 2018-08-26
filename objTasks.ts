@@ -24,6 +24,11 @@ export default class ObjTasks {
         // }
         // console.log(`REFILLL HASH`);
     }
+
+    public ReinitialMemory(DataOfRoom: IntMainRoomMemory) {
+        this.TasksMemory = DataOfRoom.TasksDataMemory;
+    }
+
     public RunInStartOfTick() {
         for (const name in this.TasksMemory) {
             if (!(name in Game.creeps)) {
@@ -34,10 +39,6 @@ export default class ObjTasks {
     }
 
     public addTask(key: string, task: enumTypeOfTask, idFrom: string, PosFrom?: RoomPosition, idTo = "", PosTo?: RoomPosition, resource = RESOURCE_ENERGY, quantity = 0) {
-        if (this.TasksMemory[key]) {
-            this.deleteTask(key);
-            messenger.log("ERROR", "", "Add we have", COLOR_RED);
-        }
         if (this.TasksMemory[key] === undefined) {
             this.TasksMemory[key] = new Object() as IntTaskMemory;
             this.TasksMemory[key].task      = task;
@@ -46,6 +47,7 @@ export default class ObjTasks {
             this.TasksMemory[key].resource  = resource;
             this.TasksMemory[key].quantity  = quantity;
             this.TasksMemory[key].come      = false;
+            // console.log(`Add task ${key} | ${task}`); // 3
             if (PosFrom) {this.TasksMemory[key].PosFrom = PosFrom; }
             if (PosTo) {this.TasksMemory[key].PosTo = PosTo; }
         }
@@ -62,7 +64,10 @@ export default class ObjTasks {
         }
         this.TasksMemory = DataOfRoom.TasksDataMemory;
         this.TasksHash  = new Object() as IntIndexTaskHash;
-        // this.refilTasksHash();
+        for (const tskname in this.TasksMemory) {
+            const task = this.TasksMemory[tskname];
+            console.log(`${tskname}  ${task.task} ${task.come}`);
+        }
     }
 
     public isTaskForCreep(creep: Creep): boolean {
@@ -85,10 +90,11 @@ export default class ObjTasks {
 
     public doTaskGoTo(creep: Creep, task: IntTaskMemory, range: number) {
         if (creep.pos.inRangeTo(task.PosFrom, range)) {
+            // console.log(`Set come=true ${task.PosFrom.x} ${task.PosFrom.y} | ${creep.name} | ${creep.pos} | ${range}`);
             if (!task.PosFrom) { messenger.log("ERROR", "", "PosFrom not have", COLOR_RED); }
             task.come = true;
         } else {
-            creep.moveTo(task.PosFrom.x, task.PosFrom.y);
+            creep.moveTo(task.PosFrom.x, task.PosFrom.y); // 123
         }
     }
 

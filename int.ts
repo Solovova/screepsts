@@ -38,6 +38,7 @@ export interface IntMainRoomMemory {
     idSpawns: string[];
     idExtensions: string[];
     idContainers: string[];
+    idLinks: string[];
 }
 
 export interface IntMainRoomQueue {

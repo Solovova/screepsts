@@ -17,7 +17,7 @@ export const loop = ErrorMapper.wrapLoop(() => {
   Memory.Account = "testts";
   let fMainRooms: string[] = [];
   if (Memory.Account === "testts") {
-    fMainRooms = ["W3N4"];
+    fMainRooms = ["W4N3"];
   }
 
   // delete Memory.MData;
@@ -25,14 +25,13 @@ export const loop = ErrorMapper.wrapLoop(() => {
   if (objMainRooms === undefined) {
     messenger.log("DEBUG", "", `Reinitialisation of objMainRooms`, COLOR_YELLOW);
     objMainRooms = new ObjMainRooms(fMainRooms);
-    objMainRooms.RunInConstruct(); // 1234
-    return;
   }
+  objMainRooms.ReinitialMemory();
+
   objMainRooms.RunInStartOfTick();
-  objMainRooms.RunNotEveryTick();
 
   objMainRooms.CreepsCalculate();
-  objMainRooms.BuildCreeps();
+  objMainRooms.RunNotEveryTick();
 
   sf.clearMemoryFromDeathCreep();
 

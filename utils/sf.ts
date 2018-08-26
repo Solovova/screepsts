@@ -6,6 +6,7 @@ const smallfunc = {
     CheckObjectExistsArray(fArrId: string[]): boolean {
         let isAllPresent: boolean = true;
         for (const i of fArrId) {
+            if (i == null) {continue; }
             if (Game.getObjectById(i) == null) {
                 isAllPresent = false;
                 break;
